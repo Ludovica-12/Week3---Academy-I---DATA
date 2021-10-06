@@ -166,4 +166,127 @@ join Artista a on a.IdArtista= o.IdArtista
 group by m.Nome, a.Nazionalita
 
 
+--Vista di riepilogo
+create view RiepilogoOpereMuseiArtisti AS
+select o.Titolo, a.Nome as [Nome Artista], a.Nazionalita as [Nazionalità Artista], m.Nome as [Nome museo], m.Citta as [Città]
+from Museo m join Opera o on o.IdMuseo=m.IdMuseo
+join Artista a on a.IdArtista= o.IdArtista
 
+
+select * from RiepilogoOpereMuseiArtisti
+
+--2.Scrivere per le tabelle Museo, Opera, Personaggio e Artista delle stored procedure in grado di eseguire 
+--  l’operazione di inserimento. I parametri da inserire nelle stored procedure sono a vostra discrezione.
+create procedure InserisciMuseo
+@nome nvarchar(50),
+@citta nvarchar(30)
+As
+insert into Museo values (@nome,@citta)
+go
+
+execute InserisciMuseo @nome='MuseoNuovo',@citta='Roma'
+select * from Museo
+
+create procedure InserisciPersonaggio
+@nome nvarchar(50)
+as
+insert into Personaggio values(@nome)
+go
+
+execute InserisciPersonaggio @nome='Gesù'
+
+create procedure InserisciArtista
+@nome nvarchar(50),
+@nazion nvarchar(50)
+AS
+insert into Artista values (@nome,@nazion)
+go
+
+execute InserisciArtista @nome='Botticelli', @nazion='Italia';
+
+create procedure InserisciOpera
+@codice nvarchar(10),
+@titolo nvarchar (50),
+@nomeMuseo nvarchar (50),
+@nomeArtista nvarchar(50)
+as
+begin
+insert into Opera values (@codice, @titolo, (select IdMuseo from Museo where Nome=@nomeMuseo), (select IdArtista from Artista where Nome=@nomeArtista));
+end
+go
+
+--sposta l'opera passata in input nel museo passato in input
+create procedure SpostaOperaNelMuseo
+@titoloOpera nvarchar(50),
+@nomeMuseo nvarchar(50)
+
+As
+begin
+declare @ID_OPERA int;
+declare @ID_Museo int;
+
+select @ID_OPERA=o.IdOpera
+from opera o
+where o.Titolo=@titoloOpera
+
+select @ID_Museo=m.IdMuseo
+from Museo m
+where m.Nome=@nomeMuseo
+update Opera set IdMuseo=@ID_Museo where IdOpera=@ID_OPERA
+end
+go
+
+--4a.Scrivere una function che restituisca il numero delle opere di un dato museo
+create function NumeroOpereInMuseo(@nomeMuseo nvarchar(50))
+returns int
+As
+begin
+declare @output int
+
+select @output=count(o.IdOpera)
+from Opera o join Museo m on m.IdMuseo=o.IdMuseo
+where m.Nome=@nomeMuseo
+return @output
+end
+
+
+select dbo.NumeroOpereInMuseo('National Gallery')
+
+--4b Scrivere una function che restituisca i musei in ordine alfabetico con il numero delle opere ivi contenute
+create function OpereInMusei()
+returns table
+As
+return 
+select Top (1000) m.Nome, count(o.IdOpera) as [Numero Opere]
+from Opera o join Museo m on m.IdMuseo=o.IdMuseo
+group by m.Nome
+order by m.Nome
+go
+
+select * from dbo.OpereInMusei()
+order by Nome;
+
+--5. Elimina Artista
+create procedure DeleteArtista @nomeArtista nvarchar(50)
+as 
+begin
+declare @ID_Artista int
+
+select @ID_Artista= IdArtista 
+from Artista 
+where Nome= @nomeArtista
+
+delete from OperaPersonaggio where IdOpera in (
+select o.IdOpera
+from opera o join Artista a on a.IdArtista=o.IdArtista
+where a.IdArtista=@ID_Artista)
+
+delete from Opera where IdOpera in (
+select o.IdOpera
+from opera o join Artista a on a.IdArtista=o.IdArtista
+where a.IdArtista=@ID_Artista)
+
+delete from Artista where nome=@nomeArtista
+end
+
+execute DeleteArtista 'Tiziano';

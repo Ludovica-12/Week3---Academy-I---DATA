@@ -141,4 +141,102 @@ where l.Titolo=@TitoloLibro
 
 select * from dbo.RicetteDelLibro('I dolci della nonna')
 
+--stored procedure con Try catch
+create procedure InserisciIngredienteAllaRicetta
+@nomeIngrediente nvarchar(50),
+@nomeRicetta nvarchar(50),
+@quantita int
+AS
+begin
+	BEGIN TRY
+	declare @ID_Ingrediente int
+
+	select @ID_Ingrediente = IdIngrediente
+	from Ingrediente
+	where Nome=@nomeIngrediente
+
+	declare @ID_Ricetta int
+
+	select @ID_Ricetta= IdRicetta
+	from Ricetta
+	where Nome=@nomeRicetta
+
+	insert into RicettaIngrediente values (@ID_Ricetta,@ID_Ingrediente, @quantita)
+	END TRY
+
+	BEGIN CATCH
+	--stampare le eccezioni
+	select ERROR_MESSAGE(), ERROR_LINE()
+	END CATCH
+end
+
+execute InserisciRicetta 'Torta di mele',10, 10,'sbattere le uova..','I dolci della nonna'
+
+select * from Ingrediente
+Select * from Ricetta
+
+execute InserisciIngredienteAllaRicetta 'Latte','Torta di mele',1;
+execute InserisciIngredienteAllaRicetta 'xxxx','Torta di mele',1;
+
+--stored procedure con transaction
+create procedure InserisciNuovoIngredienteARicetta
+@nomeNuovoIngrediente nvarchar(50),
+@descrizioneNuovoIngrediente nvarchar(50),
+@unitaDiMisura nvarchar(10),
+@nomeRicetta nvarchar(50),
+@quantita int
+
+AS
+begin
+	begin try
+	BEGIN TRANSACTION
+	insert into Ingrediente values (@nomeNuovoIngrediente,@descrizioneNuovoIngrediente,@unitaDiMisura);
+	insert into RicettaIngrediente values ((select IdRicetta from Ricetta where Nome=@nomeRicetta), (select IdIngrediente from Ingrediente where Nome=@nomeNuovoIngrediente), @quantita);
+	COMMIT TRAN;
+	END TRY
+
+	BEGIN CATCH
+	if @@ERROR>0
+	Begin
+		ROLLBACK TRAN;
+	END
+
+	select ERROR_LINE() As ErrorLine, ERROR_MESSAGE() As [Messaggio d'errore] 
+	END CATCH
+End
+
+execute InserisciNuovoIngredienteARicetta 'Lievito', 'lievito in polvere', 'gr','Torta di mele',12
+select * from Ingrediente;
+select * from LibriConRicetteEIngredienti;
+
+execute InserisciNuovoIngredienteARicetta 'Vaniglia', 'vaniglia aroma', 'gr','Torta XXXX',12
+
+
+
+--stored procedure con transaction PROVA
+create procedure InserisciNuovoIngredienteARicetta2
+@nomeNuovoIngrediente nvarchar(50),
+@descrizioneNuovoIngrediente nvarchar(50),
+@unitaDiMisura nvarchar(10),
+@nomeRicetta nvarchar(50),
+@quantita int
+
+AS
+begin
+	BEGIN TRANSACTION
+	begin try
+	insert into Ingrediente values (@nomeNuovoIngrediente,@descrizioneNuovoIngrediente,@unitaDiMisura);
+	insert into RicettaIngrediente values ((select IdRicetta from Ricetta where Nome=@nomeRicetta), (select IdIngrediente from Ingrediente where Nome=@nomeNuovoIngrediente), @quantita);
+	COMMIT TRAN;
+	END TRY
+
+	BEGIN CATCH	
+		ROLLBACK TRAN;
+	select ERROR_LINE() As ErrorLine, ERROR_MESSAGE() As [Messaggio d'errore] 
+	END CATCH	
+End
+
+execute InserisciNuovoIngredienteARicetta2 'Mele', 'mele a fette', 'gr','Torta di mele',12
+execute InserisciNuovoIngredienteARicetta2 'Vaniglia', 'vaniglia aroma', 'gr','Torta XXXX',12
+
 
